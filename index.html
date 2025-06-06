@@ -246,22 +246,6 @@
                 window.EJS_disableDatabases = true;
                 window.EJS_threads = enableThreads;
 
-                window.EJS_defaultControls = {
-                    standard: {
-                        0: { value: 'A', value2: 'A' },
-                        1: { value: 'B', value2: 'B' },
-                        2: { value: 'SELECT', value2: 'SELECT' },
-                        3: { value: 'START', value2: 'START' },
-                        12: { value: 'DPAD_UP', value2: 'DPAD_UP' },
-                        13: { value: 'DPAD_DOWN', value2: 'DPAD_DOWN' },
-                        14: { value: 'DPAD_LEFT', value2: 'DPAD_LEFT' },
-                        15: { value: 'DPAD_RIGHT', value2: 'DPAD_RIGHT' }
-                      }
-                    };
-
-                console.log("Applying controls for core:", core);
-                console.log("Controls:", window.EJS_defaultControls);
-
                 script.src = "data/loader.js";
                 document.body.appendChild(script);
             }
