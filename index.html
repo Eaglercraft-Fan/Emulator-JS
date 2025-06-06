@@ -246,19 +246,19 @@
                 window.EJS_disableDatabases = true;
                 window.EJS_threads = enableThreads;
 
-                // Gamepad control mapping for EmulatorJS
                 window.EJS_defaultControls = {
-                    0: {
-                        0: { value2: "A" },             // Gamepad button A
-                        1: { value2: "B" },             // Gamepad button B
-                        2: { value2: "SELECT" },
-                        3: { value2: "START" },
-                        12: { value2: "DPAD_UP" },
-                        13: { value2: "DPAD_DOWN" },
-                        14: { value2: "DPAD_LEFT" },
-                        15: { value2: "DPAD_RIGHT" }
-                    }
-                };
+                    standard: {
+                        0: { value: 'A', value2: 'A' },
+                        1: { value: 'B', value2: 'B' },
+                        2: { value: 'SELECT', value2: 'SELECT' },
+                        3: { value: 'START', value2: 'START' },
+                        12: { value: 'DPAD_UP', value2: 'DPAD_UP' },
+                        13: { value: 'DPAD_DOWN', value2: 'DPAD_DOWN' },
+                        14: { value: 'DPAD_LEFT', value2: 'DPAD_LEFT' },
+                        15: { value: 'DPAD_RIGHT', value2: 'DPAD_RIGHT' }
+                      }
+                    };
+
                 console.log("Applying controls for core:", core);
                 console.log("Controls:", window.EJS_defaultControls);
 
