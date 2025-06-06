@@ -1,10 +1,10 @@
 class GamepadHandler {
     constructor() {
         this.buttonLabels = {
-            0: 'BUTTON_1',
-            1: 'BUTTON_2',
-            2: 'BUTTON_3',
-            3: 'BUTTON_4',
+            0: 'BUTTON_0',
+            1: 'BUTTON_1',
+            2: 'BUTTON_2',
+            3: 'BUTTON_3',
             4: 'LEFT_TOP_SHOULDER',
             5: 'RIGHT_TOP_SHOULDER',
             6: 'LEFT_BOTTOM_SHOULDER',
@@ -18,129 +18,109 @@ class GamepadHandler {
             14: 'DPAD_LEFT',
             15: 'DPAD_RIGHT',
         };
+
+        this.keyMap = {
+            'BUTTON_0': 'z',           // A
+            'BUTTON_1': 'x',           // B
+            'START': 'Shift',          // Start
+            'SELECT': 'Enter',         // Select
+            'DPAD_UP': 'ArrowUp',
+            'DPAD_DOWN': 'ArrowDown',
+            'DPAD_LEFT': 'ArrowLeft',
+            'DPAD_RIGHT': 'ArrowRight',
+        };
+
         this.gamepads = [];
         this.listeners = {};
         this.timeout = null;
         this.loop();
     }
+
+    simulateKey(key, type = 'keydown') {
+        const event = new KeyboardEvent(type, {
+            key: key,
+            bubbles: true,
+            cancelable: true
+        });
+
+        // Try dispatching to document and canvas
+        document.dispatchEvent(event);
+        const canvas = document.querySelector('canvas');
+        if (canvas) canvas.dispatchEvent(event);
+    }
+
     terminate() {
         window.clearTimeout(this.timeout);
     }
+
     getGamepads() {
-        return navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+        return navigator.getGamepads ? navigator.getGamepads() : [];
     }
+
     loop() {
         this.updateGamepadState();
         this.timeout = setTimeout(this.loop.bind(this), 10);
     }
+
     updateGamepadState() {
         const gamepads = Array.from(this.getGamepads());
+
         gamepads.forEach((gamepad, index) => {
             if (!gamepad) return;
-            let hasGamepad = false;
-            this.gamepads.forEach((oldGamepad, oldIndex) => {
-                if (oldGamepad.index !== gamepad.index) return;
-                const gamepadToSave = {
-                    axes: [],
-                    buttons: {},
-                    index: oldGamepad.index,
-                    id: oldGamepad.id
-                }
-                hasGamepad = true;
-                
-                oldGamepad.axes.forEach((axis, axisIndex) => {
-                    const val = (axis < 0.01 && axis > -0.01) ? 0 : axis;
-                    const newVal = (gamepad.axes[axisIndex] < 0.01 && gamepad.axes[axisIndex] > -0.01) ? 0 : gamepad.axes[axisIndex];
-                    if (newVal !== val) {
-                        const axis = ['LEFT_STICK_X', 'LEFT_STICK_Y', 'RIGHT_STICK_X', 'RIGHT_STICK_Y'][axisIndex];
-                        if (!axis) return;
-                        this.dispatchEvent('axischanged', {
-                            axis: axis,
-                            value: newVal,
-                            index: gamepad.index,
-                            label: this.getAxisLabel(axis, newVal),
-                            gamepadIndex: gamepad.index,
-                        });
-                    }
-                    gamepadToSave.axes[axisIndex] = newVal;
-                })
-                
-                gamepad.buttons.forEach((button, buttonIndex) => {
-                    let pressed = oldGamepad.buttons[buttonIndex] === 1.0;
-                    if (typeof oldGamepad.buttons[buttonIndex] === "object") {
-                        pressed = oldGamepad.buttons[buttonIndex].pressed;
-                    }
-                    let pressed2 = button === 1.0;
-                    if (typeof button === "object") {
-                        pressed2 = button.pressed;
-                    }
-                    gamepadToSave.buttons[buttonIndex] = {pressed:pressed2};
-                    if (pressed !== pressed2) {
-                        if (pressed2) {
-                            this.dispatchEvent('buttondown', {index: buttonIndex, label: this.getButtonLabel(buttonIndex), gamepadIndex: gamepad.index});
+
+            let existingIndex = this.gamepads.findIndex(g => g.index === gamepad.index);
+
+            const currentState = {
+                axes: gamepad.axes.slice(),
+                buttons: gamepad.buttons.map(b => typeof b === 'object' ? b.pressed : b === 1.0),
+                index: gamepad.index,
+                id: gamepad.id
+            };
+
+            if (existingIndex !== -1) {
+                const oldGamepad = this.gamepads[existingIndex];
+
+                // Handle buttons
+                currentState.buttons.forEach((pressed, buttonIndex) => {
+                    const wasPressed = oldGamepad.buttons[buttonIndex];
+                    if (pressed !== wasPressed) {
+                        const label = this.getButtonLabel(buttonIndex);
+                        const key = this.keyMap[label];
+
+                        if (pressed) {
+                            if (key) this.simulateKey(key, 'keydown');
+                            this.dispatchEvent('buttondown', { index: buttonIndex, label, gamepadIndex: gamepad.index });
                         } else {
-                            this.dispatchEvent('buttonup', {index: buttonIndex, label:this.getButtonLabel(buttonIndex), gamepadIndex: gamepad.index});
+                            if (key) this.simulateKey(key, 'keyup');
+                            this.dispatchEvent('buttonup', { index: buttonIndex, label, gamepadIndex: gamepad.index });
                         }
                     }
-                    
-                })
-                this.gamepads[oldIndex] = gamepadToSave;
-            })
-            if (!hasGamepad) {
-                this.gamepads.push(gamepads[index]);
-                this.dispatchEvent('connected', {gamepadIndex: gamepad.index});
+                });
+
+                this.gamepads[existingIndex] = currentState;
+            } else {
+                this.gamepads.push(currentState);
+                this.dispatchEvent('connected', { gamepadIndex: gamepad.index });
             }
         });
-        
-        for (let j=0; j<this.gamepads.length; j++) {
-            if (!this.gamepads[j]) continue;
-            let has = false;
-            for (let i=0; i<gamepads.length; i++) {
-                if (!gamepads[i]) continue;
-                if (this.gamepads[j].index === gamepads[i].index) {
-                    has = true;
-                    break;
-                }
-            }
-            if (!has) {
-                this.dispatchEvent('disconnected', {gamepadIndex: this.gamepads[j].index});
-                this.gamepads.splice(j, 1);
-                j--;
-            }
+
+        // Clean up disconnected
+        this.gamepads = this.gamepads.filter(gp => gamepads.some(g => g && g.index === gp.index));
+    }
+
+    dispatchEvent(name, arg = {}) {
+        if (typeof this.listeners[name] === 'function') {
+            arg.type = name;
+            this.listeners[name](arg);
         }
     }
-    dispatchEvent(name, arg) {
-        if (typeof this.listeners[name] !== 'function') return;
-        if (!arg) arg={};
-        arg.type = name;
-        this.listeners[name](arg);
-    }
+
     on(name, cb) {
         this.listeners[name.toLowerCase()] = cb;
     }
 
     getButtonLabel(index) {
-        if (index === null || index === undefined) {
-            return null;
-        }
-        if (this.buttonLabels[index] === undefined) {
-            return `GAMEPAD_${index}`;
-        }
-        return this.buttonLabels[index];
-    }
-    getAxisLabel(axis, value) {
-        let valueLabel = null;
-        if (value > 0.5 || value < -0.5) {
-            if (value > 0) {
-                valueLabel = '+1';
-            } else {
-                valueLabel = '-1';
-            }
-        }
-        if (!axis || !valueLabel) {
-            return null;
-        }
-        return `${axis}:${valueLabel}`;
+        return this.buttonLabels[index] || `BUTTON_${index}`;
     }
 }
 
